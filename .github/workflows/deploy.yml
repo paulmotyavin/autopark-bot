@@ -1,0 +1,108 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run pyright
+
+  deploy:
+    name: Deploy to server
+    needs: check
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SSH_HOST: ${{ secrets.SERVER_HOST }}
+          SSH_USER: ${{ secrets.SERVER_USER }}
+          SSH_PORT: ${{ secrets.SERVER_PORT || '22' }}
+          KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+        run: |
+          # known_hosts обязателен: ssh-keyscan «на лету» не защищает от подмены сервера
+          test -n "$SSH_KEY" && test -n "$SSH_HOST" && test -n "$SSH_USER" \
+            && test -n "$DEPLOY_PATH" && test -n "$KNOWN_HOSTS" \
+            || { echo "Не заданы обязательные секреты (включая SERVER_KNOWN_HOSTS)" >&2; exit 1; }
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+          cat > ~/.ssh/config <<EOF
+          Host deploy
+            HostName $SSH_HOST
+            User $SSH_USER
+            Port $SSH_PORT
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Update code
+        run: |
+          ssh deploy "
+            set -eu
+            cd -- '$DEPLOY_PATH'
+            test -f .env || { echo 'В $DEPLOY_PATH нет .env, деплой остановлен' >&2; exit 1; }
+            git fetch origin main
+            git reset --hard origin/main
+          "
+
+      - name: Build image (без рестарта)
+        run: |
+          ssh deploy "
+            set -eu
+            cd -- '$DEPLOY_PATH'
+            docker compose build
+          "
+
+      - name: Apply migrations
+        run: |
+          ssh deploy "
+            set -eu
+            cd -- '$DEPLOY_PATH'
+            docker compose run --rm bot alembic upgrade head
+          "
+
+      - name: Restart services
+        run: |
+          ssh deploy "
+            set -eu
+            cd -- '$DEPLOY_PATH'
+            docker compose up -d --remove-orphans
+            docker image prune -f
+          "
+
+      - name: Check container is running
+        run: |
+          sleep 10
+          ssh deploy "
+            cd -- '$DEPLOY_PATH'
+            docker compose ps
+            if ! docker compose ps --status running --services | grep -qx bot; then
+              docker compose logs --tail 100 bot
+              exit 1
+            fi
+          "

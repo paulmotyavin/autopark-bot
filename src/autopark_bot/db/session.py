@@ -1,0 +1,23 @@
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+from autopark_bot.config import Settings
+
+
+def build_engine(settings: Settings) -> AsyncEngine:
+    return create_async_engine(
+        settings.database_url,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_pre_ping=True,  # БД и бот могут быть на разных хостах: переживаем разрывы
+        pool_recycle=1800,
+        connect_args=settings.db_connect_args,
+    )
+
+
+def build_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(engine, expire_on_commit=False)

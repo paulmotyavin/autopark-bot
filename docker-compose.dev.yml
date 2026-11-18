@@ -1,0 +1,22 @@
+# ТОЛЬКО для локальной разработки: Postgres и Redis на localhost.
+# Запуск: docker compose -f docker-compose.dev.yml up -d
+# В .env: DB_HOST=localhost, REDIS_URL=redis://localhost:6379/0, DB_SSL_MODE пустой.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg_dev_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+
+volumes:
+  pg_dev_data:

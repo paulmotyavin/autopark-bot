@@ -1,0 +1,54 @@
+# Прод: бот + Redis. База данных — облачная (DB_HOST и DB_SSL_MODE в .env).
+services:
+  bot:
+    build: .
+    image: autopark-bot:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: Europe/Moscow
+    depends_on:
+      redis:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - default   # исходящий трафик: прокси к Telegram, облачная БД, S3
+      - backend   # Redis
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - backend   # порт наружу НЕ публикуется
+
+networks:
+  default: {}
+  backend:
+    internal: true
+
+volumes:
+  redis_data:

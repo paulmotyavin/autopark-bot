@@ -1,0 +1,15 @@
+# Секреты и всё, что не должно попадать в слои образа
+.env
+.env.*
+!.env.example
+.git
+.github
+.venv
+backups
+data
+__pycache__
+*.pyc
+.ruff_cache
+.pytest_cache
+.idea
+.vscode
