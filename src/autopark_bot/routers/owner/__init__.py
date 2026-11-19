@@ -2,7 +2,7 @@ from aiogram import Router
 
 from autopark_bot.enums import STAFF_ROLES
 from autopark_bot.filters.role import RoleFilter
-from autopark_bot.routers.owner import drivers, invites, vehicles
+from autopark_bot.routers.owner import common, drivers, invites, rentals, vehicles
 
 router = Router(name="owner")
 
@@ -11,8 +11,12 @@ router = Router(name="owner")
 router.message.filter(RoleFilter(*STAFF_ROLES))
 router.callback_query.filter(RoleFilter(*STAFF_ROLES))
 
-router.include_routers(invites.router, drivers.router, vehicles.router)
+# common — первым: там /cancel, общие для всех пошаговых вводов.
+# rentals — после vehicles/drivers: у него в конце «ловушка» для устаревших кнопок аренды.
+router.include_routers(
+    common.router, invites.router, drivers.router, vehicles.router, rentals.router
+)
 
-# Сюда добавляются фичи по мере роста: rentals.py, payments.py, ...
+# Сюда добавляются фичи по мере роста: payments.py, maintenance.py, ...
 # Принадлежность данных проверяйте в сервисах запросом (WHERE ... = :user_id),
 # а не по значениям из callback_data.

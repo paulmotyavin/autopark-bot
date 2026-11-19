@@ -45,3 +45,10 @@ VEHICLE_STATUS_TITLES: dict[VehicleStatus, str] = {
     VehicleStatus.REPAIR: "🔧 на ремонте",
     VehicleStatus.ARCHIVED: "🗄 в архиве",
 }
+
+
+RATE_PERIOD_TITLES: dict[RatePeriod, str] = {
+    RatePeriod.DAILY: "сутки",
+    RatePeriod.WEEKLY: "неделя",
+    RatePeriod.MONTHLY: "месяц",
+}

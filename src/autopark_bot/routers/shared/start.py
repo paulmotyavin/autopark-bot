@@ -24,10 +24,7 @@ def welcome_text(user: User) -> str:
     name = html.escape(user.full_name)  # имя приходит от пользователя, а parse_mode=HTML
     text = f"Здравствуйте, {name}! Вы вошли как {ROLE_TITLES[role]}."
     if role in STAFF_ROLES:
-        text += (
-            "\n\n/adddriver Фамилия Имя | телефон — "
-            "добавить водителя и получить ссылку для входа"
-        )
+        text += "\n\nРазделы — в меню внизу экрана."
         if role is Role.OWNER:
             text += "\n/invite admin — ссылка для администратора"
     return text
